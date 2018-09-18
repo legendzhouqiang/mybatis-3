@@ -78,6 +78,12 @@ public class XMLConfigBuilder extends BaseBuilder {
     this(inputStream, environment, null);
   }
 
+  /**
+   * mybatis  配置文件builder
+   * @param inputStream
+   * @param environment
+   * @param props
+   */
   public XMLConfigBuilder(InputStream inputStream, String environment, Properties props) {
     this(new XPathParser(inputStream, true, props, new XMLMapperEntityResolver()), environment, props);
   }
@@ -96,18 +102,38 @@ public class XMLConfigBuilder extends BaseBuilder {
       throw new BuilderException("Each XMLConfigBuilder can only be used once.");
     }
     parsed = true;
+    //获取configuration节点
     parseConfiguration(parser.evalNode("/configuration"));
     return configuration;
   }
 
+
+  /**
+   * ，XMLConfigBuilder会依次解析配置文件中的<properties>、
+   *  <settings>,全局配置
+   *  <typeAliases>,别名配置
+   *  <plugins>,  插件
+   *  <objectFactory>,
+   *  <objectWrapperFactory>,
+   *  <reflectorFactory>,
+   *  <databaseIdProvider>, 数据库配置
+   *  <typeHandlers>  jdbc<=>java 映射器
+   *   <mappers> 映射配置
+   * @param root
+   */
   private void parseConfiguration(XNode root) {
     try {
       //issue #117 read properties first
+      // 解析<properties>节点
       propertiesElement(root.evalNode("properties"));
+      // 解析<settings>节点
       Properties settings = settingsAsProperties(root.evalNode("settings"));
       loadCustomVfs(settings);
+      // 解析<typeAliases>节点
       typeAliasesElement(root.evalNode("typeAliases"));
+      // 解析<plugins>节点
       pluginElement(root.evalNode("plugins"));
+      // 解析<objectFactory>节点
       objectFactoryElement(root.evalNode("objectFactory"));
       objectWrapperFactoryElement(root.evalNode("objectWrapperFactory"));
       reflectorFactoryElement(root.evalNode("reflectorFactory"));
@@ -116,6 +142,7 @@ public class XMLConfigBuilder extends BaseBuilder {
       environmentsElement(root.evalNode("environments"));
       databaseIdProviderElement(root.evalNode("databaseIdProvider"));
       typeHandlerElement(root.evalNode("typeHandlers"));
+      // 解析<mappers>节点
       mapperElement(root.evalNode("mappers"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
@@ -151,7 +178,14 @@ public class XMLConfigBuilder extends BaseBuilder {
     }
   }
 
-  private void typeAliasesElement(XNode parent) {
+  /**
+   * typeAlias 解析
+   * 如果<typeAliases>节点下定义了<package>节点，那么MyBatis会给该包下的所有类起一个别名（以类名首字母小写作为别名）
+   * 如果<typeAliases>节点下定义了<typeAlias>节点，那么MyBatis就会给指定的类起指定的别名。
+   * 这些别名都会被存入configuration的typeAliasRegistry容器中。
+   * @param parent
+   */
+    private void typeAliasesElement(XNode parent) {
     if (parent != null) {
       for (XNode child : parent.getChildren()) {
         if ("package".equals(child.getName())) {
@@ -162,6 +196,7 @@ public class XMLConfigBuilder extends BaseBuilder {
           String type = child.getStringAttribute("type");
           try {
             Class<?> clazz = Resources.classForName(type);
+            //将Class ,alias 存放在TypeAliasRegistry中
             if (alias == null) {
               typeAliasRegistry.registerAlias(clazz);
             } else {
@@ -356,27 +391,67 @@ public class XMLConfigBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * mapper映射配置解析
+   * 1：
+   * <mappers>
+   * <package name="org.mybatis.builder"/>
+   * </mappers>
+   *
+   * 2：
+   * <mappers>
+   * <mapper resource="org/mybatis/builder/AuthorMapper.xml"/>
+   * </mappers>
+   *
+   * 3：
+   * <mappers>
+   * <mapper url="file:///var/mappers/AuthorMapper.xml"/>
+   * </mappers>
+   *
+   *
+   * 4：
+   * <mappers>
+   * <mapper class="org.mybatis.builder.AuthorMapper"/>
+   * </mappers>
+   *
+   * @param parent
+   * @throws Exception
+   */
   private void mapperElement(XNode parent) throws Exception {
     if (parent != null) {
+      // 遍历<mappers>下所有子节点
       for (XNode child : parent.getChildren()) {
+
+        // 如果当前节点为<package>
         if ("package".equals(child.getName())) {
+          // 获取<package>的name属性（该属性值为mapper class所在的包名）
           String mapperPackage = child.getStringAttribute("name");
+
+          // 将该包下的所有Mapper Class注册到configuration的mapperRegistry容器中
           configuration.addMappers(mapperPackage);
         } else {
           String resource = child.getStringAttribute("resource");
           String url = child.getStringAttribute("url");
           String mapperClass = child.getStringAttribute("class");
+
+          // 解析resource属性（Mapper.xml文件的路径）
           if (resource != null && url == null && mapperClass == null) {
             ErrorContext.instance().resource(resource);
             InputStream inputStream = Resources.getResourceAsStream(resource);
+
+            // 使用XMLMapperBuilder解析Mapper.xml，并将Mapper Class注册进configuration对象的mapperRegistry容器中
             XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource, configuration.getSqlFragments());
             mapperParser.parse();
-          } else if (resource == null && url != null && mapperClass == null) {
+          }
+          // 解析url属性（Mapper.xml文件的路径)
+          else if (resource == null && url != null && mapperClass == null) {
             ErrorContext.instance().resource(url);
             InputStream inputStream = Resources.getUrlAsStream(url);
             XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, url, configuration.getSqlFragments());
             mapperParser.parse();
-          } else if (resource == null && url == null && mapperClass != null) {
+          }
+          // 解析class属性（Mapper Class的全限定名）
+          else if (resource == null && url == null && mapperClass != null) {
             Class<?> mapperInterface = Resources.classForName(mapperClass);
             configuration.addMapper(mapperInterface);
           } else {

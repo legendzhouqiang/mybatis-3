@@ -33,6 +33,10 @@ import org.apache.ibatis.session.Configuration;
  *
  * @author Clinton Begin
  */
+
+/**
+ * BoundSql：表示动态生成的SQL语句以及相应的参数信息；
+ */
 public class BoundSql {
 
   private final String sql;

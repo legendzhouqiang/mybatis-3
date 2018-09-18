@@ -103,23 +103,43 @@ public class XMLMapperBuilder extends BaseBuilder {
     return sqlFragments.get(refid);
   }
 
+  /**
+   * 解析<mapper> ....<mapper/>映射配置子节点
+   * @param context
+   */
   private void configurationElement(XNode context) {
     try {
+      // 获取<mapper>节点上的namespace属性，该属性必须存在，表示当前映射文件对应的Mapper Class是谁
       String namespace = context.getStringAttribute("namespace");
       if (namespace == null || namespace.equals("")) {
         throw new BuilderException("Mapper's namespace cannot be empty");
       }
+      // 将namespace属性值赋给builderAssistant
       builderAssistant.setCurrentNamespace(namespace);
+
+      // 解析<cache-ref>节点
       cacheRefElement(context.evalNode("cache-ref"));
+
+      // 解析<cache>节点
       cacheElement(context.evalNode("cache"));
+
+      // 解析<parameterMap>节点
       parameterMapElement(context.evalNodes("/mapper/parameterMap"));
+
+      // 解析<resultMap>节点
       resultMapElements(context.evalNodes("/mapper/resultMap"));
+
+      // 解析<sql>节点
       sqlElement(context.evalNodes("/mapper/sql"));
+
+      // 解析sql语句
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
+
     } catch (Exception e) {
       throw new BuilderException("Error parsing Mapper XML. Cause: " + e, e);
     }
   }
+
 
   private void buildStatementFromContext(List<XNode> list) {
     if (configuration.getDatabaseId() != null) {
@@ -238,6 +258,20 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * mapper 配置resultMap 解析
+   *  <resultMap id="userResultMap" type="User">
+   *   <constructor>
+   *      <idArg column="id" javaType="int"/>
+   *      <arg column="username" javaType="String"/>
+   *   </constructor>
+   *   <result property="username" column="user_name"/>
+   *   <result property="password" column="hashed_password"/>
+   * </resultMap>
+   *
+   * @param list
+   * @throws Exception
+   */
   private void resultMapElements(List<XNode> list) throws Exception {
     for (XNode resultMapNode : list) {
       try {
@@ -252,27 +286,55 @@ public class XMLMapperBuilder extends BaseBuilder {
     return resultMapElement(resultMapNode, Collections.<ResultMapping> emptyList());
   }
 
+  /**
+   * resultMap 配置解析
+   * @param resultMapNode
+   * @param additionalResultMappings
+   * @return
+   * @throws Exception
+   */
   private ResultMap resultMapElement(XNode resultMapNode, List<ResultMapping> additionalResultMappings) throws Exception {
     ErrorContext.instance().activity("processing " + resultMapNode.getValueBasedIdentifier());
+    // 获取<ResultMap>上的id属性
     String id = resultMapNode.getStringAttribute("id",
-        resultMapNode.getValueBasedIdentifier());
+            resultMapNode.getValueBasedIdentifier());
+
+    // 获取<ResultMap>上的type属性（即resultMap的返回值类型）
     String type = resultMapNode.getStringAttribute("type",
-        resultMapNode.getStringAttribute("ofType",
-            resultMapNode.getStringAttribute("resultType",
-                resultMapNode.getStringAttribute("javaType"))));
+            resultMapNode.getStringAttribute("ofType",
+                    resultMapNode.getStringAttribute("resultType",
+                            resultMapNode.getStringAttribute("javaType"))));
+
+    // 获取extends属性
     String extend = resultMapNode.getStringAttribute("extends");
+
+    // 获取autoMapping属性
     Boolean autoMapping = resultMapNode.getBooleanAttribute("autoMapping");
+
+
+    // 将resultMap的返回值类型转换成Class对象
     Class<?> typeClass = resolveClass(type);
     Discriminator discriminator = null;
+
+    // resultMappings用于存储<resultMap>下所有的子节点
     List<ResultMapping> resultMappings = new ArrayList<ResultMapping>();
     resultMappings.addAll(additionalResultMappings);
+
+
+    // 获取并遍历<resultMap>下所有的子节点
     List<XNode> resultChildren = resultMapNode.getChildren();
     for (XNode resultChild : resultChildren) {
+      // 若当前节点为<constructor>，则将它的子节点们添加到resultMappings中去
       if ("constructor".equals(resultChild.getName())) {
         processConstructorElement(resultChild, typeClass, resultMappings);
-      } else if ("discriminator".equals(resultChild.getName())) {
+      }
+      // 若当前节点为<discriminator>，则进行条件判断，并将命中的子节点添加到resultMappings中去
+      else if ("discriminator".equals(resultChild.getName())) {
         discriminator = processDiscriminatorElement(resultChild, typeClass, resultMappings);
-      } else {
+      }
+      // 若当前节点为<result>、<association>、<collection>，则将其添加到resultMappings中去
+      else {
+        // PS:flags仅用于区分当前节点是否是<id>或<idArg>，因为这两个节点的属性名为name，而其他节点的属性名为property
         List<ResultFlag> flags = new ArrayList<ResultFlag>();
         if ("id".equals(resultChild.getName())) {
           flags.add(ResultFlag.ID);
@@ -280,6 +342,7 @@ public class XMLMapperBuilder extends BaseBuilder {
         resultMappings.add(buildResultMappingFromContext(resultChild, typeClass, flags));
       }
     }
+    // ResultMapResolver的作用是生成ResultMap对象，并将其加入到Configuration对象的resultMaps容器中（具体过程见下）
     ResultMapResolver resultMapResolver = new ResultMapResolver(builderAssistant, id, typeClass, extend, discriminator, resultMappings, autoMapping);
     try {
       return resultMapResolver.resolve();
@@ -288,6 +351,7 @@ public class XMLMapperBuilder extends BaseBuilder {
       throw e;
     }
   }
+
 
   private void processConstructorElement(XNode resultChild, Class<?> resultType, List<ResultMapping> resultMappings) throws Exception {
     List<XNode> argChildren = resultChild.getChildren();

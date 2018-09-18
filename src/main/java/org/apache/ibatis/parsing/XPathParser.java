@@ -120,6 +120,13 @@ public class XPathParser {
     this.document = createDocument(new InputSource(reader));
   }
 
+  /***
+   * XPathParser 解析配置文件，最终mybatis-config.xml 转化为Dom
+   * @param inputStream
+   * @param validation
+   * @param variables
+   * @param entityResolver
+   */
   public XPathParser(InputStream inputStream, boolean validation, Properties variables, EntityResolver entityResolver) {
     commonConstructor(validation, variables, entityResolver);
     this.document = createDocument(new InputSource(inputStream));
@@ -225,6 +232,11 @@ public class XPathParser {
     }
   }
 
+  /**
+   * mybatis-config 被转换为Document
+   * @param inputSource
+   * @return
+   */
   private Document createDocument(InputSource inputSource) {
     // important: this must only be called AFTER common constructor
     try {

@@ -191,6 +191,14 @@ public abstract class BaseExecutor implements Executor {
     }
   }
 
+  /**
+   * 创建sqlSession 缓存key
+   * @param ms
+   * @param parameterObject
+   * @param rowBounds
+   * @param boundSql
+   * @return
+   */
   @Override
   public CacheKey createCacheKey(MappedStatement ms, Object parameterObject, RowBounds rowBounds, BoundSql boundSql) {
     if (closed) {
