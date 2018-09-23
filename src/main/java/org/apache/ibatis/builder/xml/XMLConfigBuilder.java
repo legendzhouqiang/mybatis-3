@@ -97,6 +97,10 @@ public class XMLConfigBuilder extends BaseBuilder {
     this.parser = parser;
   }
 
+  /**
+   * 开始解析Mybatis 配置文件
+   * @return
+   */
   public Configuration parse() {
     if (parsed) {
       throw new BuilderException("Each XMLConfigBuilder can only be used once.");
@@ -109,7 +113,8 @@ public class XMLConfigBuilder extends BaseBuilder {
 
 
   /**
-   * ，XMLConfigBuilder会依次解析配置文件中的<properties>、
+   * ，XMLConfigBuilder会依次解析配置文件中的
+   *  <properties>、
    *  <settings>,全局配置
    *  <typeAliases>,别名配置
    *  <plugins>,  插件
@@ -139,8 +144,10 @@ public class XMLConfigBuilder extends BaseBuilder {
       reflectorFactoryElement(root.evalNode("reflectorFactory"));
       settingsElement(settings);
       // read it after objectFactory and objectWrapperFactory issue #631
+      // 解析<environments>节点---代表环境
       environmentsElement(root.evalNode("environments"));
       databaseIdProviderElement(root.evalNode("databaseIdProvider"));
+      // 解析<typeHandlers>节点---类型处理器配置
       typeHandlerElement(root.evalNode("typeHandlers"));
       // 解析<mappers>节点
       mapperElement(root.evalNode("mappers"));
@@ -248,6 +255,12 @@ public class XMLConfigBuilder extends BaseBuilder {
     }
   }
 
+
+  /**
+   * 属性配置解析，对应<properties></properties>
+   * @param context
+   * @throws Exception
+   */
   private void propertiesElement(XNode context) throws Exception {
     if (context != null) {
       Properties defaults = context.getChildrenAsProperties();
